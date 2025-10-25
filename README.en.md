@@ -1,12 +1,16 @@
 # openssl decode
 
-#### Description
+## Description
 
 input : release\res\s_connect.pcapng,  ECDHE private key
 
 output:  index.html
 
 Function: decode TLS traffic
+
+
+
+## ECDHE private key
 
 ```
 const char local_prikey_str[] = "60c436e016e222581407cd72eb98fd81877414960a23041f5b8d2868dbbbe765";
@@ -16,12 +20,57 @@ str2hex(local_prikey_str, sizeof(local_prikey_str), local_prikey);
 
 
 
+<p align='center'>
+<img src='https://img.halfrost.com/Blog/ArticleImage/121_5.png'>
+</p>
 
-#### Software Architecture
+## Software Architecture
+
+```mermaid
+graph
+parse_tls["parse_tls(c2s, buf)"]
+
+subgraph record[layer: record]
+handshake
+app[Application Data]
+CCS[ChangeCipherSpec]
+end
+
+type_app[record things<br>handshake type, content<BR>ALPN type<br>...]
+finished[verify_data<br>calc app_traffic secrets]
+
+type_hs[calc handshake secrets]
+
+parse_tls  --> handshake
+parse_tls  --> CCS
+parse_tls --> app
+
+handshake  --> type_app
+type_app --got finished msg --> finished
+
+CCS --> type_hs
+app --> decode[Decipher]
+decode --type:handshake--> type_app
+decode --type:app --> Application
+Application --> http
+
+```
+
+
+
+## Installation
+
+command line app:
+
+openssl_dec.exe
+
+
+
+## Instructions
 
 OS: windows 10 22H2
 
-IDE: VS2019
+IDE: Visual Studio Community 2019
 
 language:  C
 
@@ -39,37 +88,3 @@ cmake: 4.0.4
 | npcap       | 1.15    | used to compile libpcap |
 | llhttp      | 9.3.0   | parse http header       |
 
-
-
-compile result: openssl_dec.exe
-
-
-
-#### Installation
-
-1.  xxxx
-2.  xxxx
-3.  xxxx
-
-#### Instructions
-
-1.  xxxx
-2.  xxxx
-3.  xxxx
-
-#### Contribution
-
-1.  Fork the repository
-2.  Create Feat_xxx branch
-3.  Commit your code
-4.  Create Pull Request
-
-
-#### Gitee Feature
-
-1.  You can use Readme\_XXX.md to support different languages, such as Readme\_en.md, Readme\_zh.md
-2.  Gitee blog [blog.gitee.com](https://blog.gitee.com)
-3.  Explore open source project [https://gitee.com/explore](https://gitee.com/explore)
-4.  The most valuable open source project [GVP](https://gitee.com/gvp)
-5.  The manual of Gitee [https://gitee.com/help](https://gitee.com/help)
-6.  The most popular members  [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)

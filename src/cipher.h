@@ -17,8 +17,6 @@ extern void openssl_exit(OSSL_LIB_CTX* ctx);
 struct final_secret {
 	unsigned char key[EVP_MAX_KEY_LENGTH];
 	unsigned char iv[EVP_MAX_IV_LENGTH];
-	//Additional Authenticated Data(AAD)
-	unsigned char aad[5];
 
 	/* RFC8446 5.3. Per-Record Nonce
 	A 64-bit sequence number is maintained separately for reading and writing records.

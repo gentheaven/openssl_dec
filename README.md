@@ -199,7 +199,7 @@ wireshark ：文件 - 导出特定分组 - 仅选中分组，保存为文件：
 
 这个文件作为程序的输入。
 
-![wireshark_s_connect](.\release\res\wireshark_s_connect.jpg)
+![wireshark_s_connect](./release/res/wireshark_s_connect.jpg)
 
 
 
@@ -273,7 +273,7 @@ ENABLE_REMOTE=false
 
 ENABLE_REMOTE=false，告诉编译器无需链接 OpenSSL 库。
 
-![cmake](.\release\res\cmake.jpg)
+![cmake](./release/res/cmake.jpg)
 
 点击：configure, generate，生成 VS2019 工程项目
 

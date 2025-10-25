@@ -323,7 +323,10 @@ int decode_app_data(int c2s, char* buf, u_int len, uint8_t* type)
 	struct final_secret* keys = &parse->shts_keys;
 
 	keys = get_proper_keys(c2s, gCypher_state);
-	fill_aad(keys->aad, len);
+
+	//Additional Authenticated Data(AAD)
+	unsigned char aad[5];
+	fill_aad(aad, len);
 	
 	//the last 16 bytes is TAG value
 	unsigned char tag[EVP_MAX_AEAD_TAG_LENGTH];
@@ -339,7 +342,7 @@ int decode_app_data(int c2s, char* buf, u_int len, uint8_t* type)
 		parse->enc = enc;
 		printf("start to decode handshake packets:\n\n");
 	}
-	aes_gcm_set(enc, keys->key, nonce, keys->aad);
+	aes_gcm_set(enc, keys->key, nonce, aad);
 
 	int ret = aes_gcm_dec(enc, tag, (unsigned char*)buf, len, buf, &len);
 	if (ret != EXIT_SUCCESS)
