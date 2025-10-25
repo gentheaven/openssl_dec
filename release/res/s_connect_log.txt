@@ -1,0 +1,30 @@
+ecdhe local private key(32B) 60c436e016e222581407cd72eb98fd81877414960a23041f5b8d2868dbbbe765
+ecdhe peer  public  key(32B) df36682fdaee3c8a0d82ecd3307e7f5c1859c4717e64b5b5a1f7e02aa5c6b946
+ecdhe pre-master secret(32B) 0c8e6ff0577cf91cc177cc380ffa1bc9178893fcfaa2c36754366f1a9d1f8201
+early     secret(48B) 7ee8206f5570023e6dc7519eb1073bc4e791ad37b5c382aa10ba18e2357e716971f9362f2c2fe2a76bfd78dfec4ea9b5
+handshake secret(48B) 580de75af6b3c62b40157b9e0d2945f41ea2af44a9c78ed69c60d56d5beaa035989aa9366a8f83558f2e234c2016be5d
+master    secret(48B)     2ea372e99385a2272efa0daf3cf8855186f9800ab08a521a08adcb5687de901716347049b9dad321b575a9d131a25818
+
+s hs traffic
+handshake_traffic_hash    0fd9a374c696d582caf4e0570a3e60ee072c57e87a350920e0ed6a295ac95f953f686bf0dcb0712a9a00d8906785dd7c
+server_hs_traffic_secret  b0a60c4afd55b1ebadd842915305eaa8cfb6315ab54fc969604a87d62f45d8ecbc6e8d41e2bee720288f228e0d6e62d8
+key(32B)                  426acab666d9df805a49d7c2f53a50fd4038abf71e87b3058e169db76f24aa0d
+IV(12B)                   04b97c0a384e2fab1270d42d
+
+
+s ap traffic
+server_app_traffic_secret 0cd4f52e2e44fe15337b5cf76a2afb801b4a6ec19cda118ed0030184290e4b2bef64eb32eec909c0d1bf1aac239f2938
+server_finished_hash      eb8f36c4b8d1044b544085657b72ee786c14ad47d5b872ed9a6b86c47155b23e65f448b50fee17472c2dc682cf87d329
+key(32B)                  beff18a4924aa5aaa1dfa951b55d5d88092a48fe9e8900b634663fc90a25131d
+IV(12B)                   fa1e89b3d79558983311eed3
+
+c hs traffic
+client_hs_traffic_secret  c2e1ed15d9796607013c6e0aa877dfe83b577dabcb2d2b8b1d0e5d744b0497c535afaf6b844036edb4835677b25b5674
+key(32B)                  e0da45379e8aeb480a11d23e1ef48d214cc775c5cbe15c286015da404d1a8045
+IV(12B)                   fd8dde9c31edee17533d4d2b
+
+c ap traffic
+client_app_traffic_secret 628d11df31b165281ee83f5348237871307d3e6409bd17df232329d0da42ae06a00a0ddabc22d38bc42e78efb8216dad
+key(32B)                  245e76207e552bc92fbec02353bfd7fc821145214a57f57ff9e74cdcce32445b
+IV(12B)                   5b308a10e146fbff3070e2f1
+
