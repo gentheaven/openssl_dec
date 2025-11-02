@@ -595,7 +595,129 @@ static const ssl_trace_tbl ssl_cert_type_tbl[] = {
 	{TLSEXT_cert_type_1609dot2, "1609dot2"}
 };
 
+/// openssl-3.5.4\apps\lib\s_cb.c
+/// ////////////////////////////////////////////////////////////////////////////////////
+/// </summary>
 
+/*
+ * A string/int pairing; widely use for option value lookup, hence the
+ * name OPT_PAIR. But that name is misleading in s_cb.c, so we also use
+ * the "generic" name STRINT_PAIR.
+ */
+typedef struct string_int_pair_st {
+    const char* name;
+    int retval;
+} OPT_PAIR, STRINT_PAIR;
+
+
+static const STRINT_PAIR tlsext_types[] = {
+    {"server name", TLSEXT_TYPE_server_name},
+    {"max fragment length", TLSEXT_TYPE_max_fragment_length},
+    {"client certificate URL", TLSEXT_TYPE_client_certificate_url},
+    {"trusted CA keys", TLSEXT_TYPE_trusted_ca_keys},
+    {"truncated HMAC", TLSEXT_TYPE_truncated_hmac},
+    {"status request", TLSEXT_TYPE_status_request},
+    {"user mapping", TLSEXT_TYPE_user_mapping},
+    {"client authz", TLSEXT_TYPE_client_authz},
+    {"server authz", TLSEXT_TYPE_server_authz},
+    {"cert type", TLSEXT_TYPE_cert_type},
+    {"supported_groups", TLSEXT_TYPE_supported_groups},
+    {"EC point formats", TLSEXT_TYPE_ec_point_formats},
+    {"SRP", TLSEXT_TYPE_srp},
+    {"signature algorithms", TLSEXT_TYPE_signature_algorithms},
+    {"use SRTP", TLSEXT_TYPE_use_srtp},
+    {"session ticket", TLSEXT_TYPE_session_ticket},
+    {"renegotiation info", TLSEXT_TYPE_renegotiate},
+    {"signed certificate timestamps", TLSEXT_TYPE_signed_certificate_timestamp},
+    {"client cert type", TLSEXT_TYPE_client_cert_type},
+    {"server cert type", TLSEXT_TYPE_server_cert_type},
+    {"TLS padding", TLSEXT_TYPE_padding},
+#ifdef TLSEXT_TYPE_next_proto_neg
+    {"next protocol", TLSEXT_TYPE_next_proto_neg},
+#endif
+#ifdef TLSEXT_TYPE_encrypt_then_mac
+    {"encrypt-then-mac", TLSEXT_TYPE_encrypt_then_mac},
+#endif
+#ifdef TLSEXT_TYPE_application_layer_protocol_negotiation
+    {"application layer protocol negotiation",
+     TLSEXT_TYPE_application_layer_protocol_negotiation},
+#endif
+#ifdef TLSEXT_TYPE_extended_master_secret
+    {"extended master secret", TLSEXT_TYPE_extended_master_secret},
+#endif
+    {"compress certificate", TLSEXT_TYPE_compress_certificate},
+    {"key share", TLSEXT_TYPE_key_share},
+    {"supported versions", TLSEXT_TYPE_supported_versions},
+    {"psk", TLSEXT_TYPE_psk},
+    {"psk kex modes", TLSEXT_TYPE_psk_kex_modes},
+    {"certificate authorities", TLSEXT_TYPE_certificate_authorities},
+    {"post handshake auth", TLSEXT_TYPE_post_handshake_auth},
+    {"early_data", TLSEXT_TYPE_early_data},
+    {NULL}
+};
+
+/* from rfc8446 4.2.3. + gost (https://tools.ietf.org/id/draft-smyshlyaev-tls12-gost-suites-04.html) */
+static STRINT_PAIR signature_tls13_scheme_list[] = {
+    {"rsa_pkcs1_sha1",         0x0201 /* TLSEXT_SIGALG_rsa_pkcs1_sha1 */},
+    {"ecdsa_sha1",             0x0203 /* TLSEXT_SIGALG_ecdsa_sha1 */},
+    /*  {"rsa_pkcs1_sha224",       0x0301    TLSEXT_SIGALG_rsa_pkcs1_sha224}, not in rfc8446 */
+    /*  {"ecdsa_sha224",           0x0303    TLSEXT_SIGALG_ecdsa_sha224}      not in rfc8446 */
+        {"rsa_pkcs1_sha256",       0x0401 /* TLSEXT_SIGALG_rsa_pkcs1_sha256 */},
+        {"ecdsa_secp256r1_sha256", 0x0403 /* TLSEXT_SIGALG_ecdsa_secp256r1_sha256 */},
+        {"rsa_pkcs1_sha384",       0x0501 /* TLSEXT_SIGALG_rsa_pkcs1_sha384 */},
+        {"ecdsa_secp384r1_sha384", 0x0503 /* TLSEXT_SIGALG_ecdsa_secp384r1_sha384 */},
+        {"rsa_pkcs1_sha512",       0x0601 /* TLSEXT_SIGALG_rsa_pkcs1_sha512 */},
+        {"ecdsa_secp521r1_sha512", 0x0603 /* TLSEXT_SIGALG_ecdsa_secp521r1_sha512 */},
+        {"rsa_pss_rsae_sha256",    0x0804 /* TLSEXT_SIGALG_rsa_pss_rsae_sha256 */},
+        {"rsa_pss_rsae_sha384",    0x0805 /* TLSEXT_SIGALG_rsa_pss_rsae_sha384 */},
+        {"rsa_pss_rsae_sha512",    0x0806 /* TLSEXT_SIGALG_rsa_pss_rsae_sha512 */},
+        {"ed25519",                0x0807 /* TLSEXT_SIGALG_ed25519 */},
+        {"ed448",                  0x0808 /* TLSEXT_SIGALG_ed448 */},
+        {"rsa_pss_pss_sha256",     0x0809 /* TLSEXT_SIGALG_rsa_pss_pss_sha256 */},
+        {"rsa_pss_pss_sha384",     0x080a /* TLSEXT_SIGALG_rsa_pss_pss_sha384 */},
+        {"rsa_pss_pss_sha512",     0x080b /* TLSEXT_SIGALG_rsa_pss_pss_sha512 */},
+        {"gostr34102001",          0xeded /* TLSEXT_SIGALG_gostr34102001_gostr3411 */},
+        {"gostr34102012_256",      0xeeee /* TLSEXT_SIGALG_gostr34102012_256_gostr34112012_256 */},
+        {"gostr34102012_512",      0xefef /* TLSEXT_SIGALG_gostr34102012_512_gostr34112012_512 */},
+        {NULL}
+};
+
+/* from rfc5246 7.4.1.4.1. */
+static STRINT_PAIR signature_tls12_alg_list[] = {
+    {"anonymous", TLSEXT_signature_anonymous /* 0 */},
+    {"RSA",       TLSEXT_signature_rsa       /* 1 */},
+    {"DSA",       TLSEXT_signature_dsa       /* 2 */},
+    {"ECDSA",     TLSEXT_signature_ecdsa     /* 3 */},
+    {NULL}
+};
+
+/* from rfc5246 7.4.1.4.1. */
+static STRINT_PAIR signature_tls12_hash_list[] = {
+    {"none",   TLSEXT_hash_none   /* 0 */},
+    {"MD5",    TLSEXT_hash_md5    /* 1 */},
+    {"SHA1",   TLSEXT_hash_sha1   /* 2 */},
+    {"SHA224", TLSEXT_hash_sha224 /* 3 */},
+    {"SHA256", TLSEXT_hash_sha256 /* 4 */},
+    {"SHA384", TLSEXT_hash_sha384 /* 5 */},
+    {"SHA512", TLSEXT_hash_sha512 /* 6 */},
+    {NULL}
+};
+
+const char* got_SignatureScheme_name(uint16_t id)
+{
+    size_t i;
+    size_t ntbl = sizeof(signature_tls13_scheme_list) / sizeof(STRINT_PAIR);
+    const STRINT_PAIR* tbl = signature_tls13_scheme_list;
+    for (i = 0; i < ntbl; i++, tbl++) {
+        if (tbl->retval == id)
+            return tbl->name;
+    }
+    return "UNKNOWN";
+}
+
+/// <summary>
+/// ////////////////////////////////////////////////////////////////////////////////////
+/// </summary>
 
 size_t ssl_exts_tbl_num = sizeof(ssl_exts_tbl) / sizeof(ssl_trace_tbl);
 size_t ssl_groups_tbl_num = sizeof(ssl_groups_tbl) / sizeof(ssl_trace_tbl);

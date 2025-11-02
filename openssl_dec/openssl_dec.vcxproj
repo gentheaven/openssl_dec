@@ -26,6 +26,7 @@
     <ClInclude Include="..\src\parse.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\src\applink.c" />
     <ClCompile Include="..\src\cipher.c" />
     <ClCompile Include="..\src\main.c" />
     <ClCompile Include="..\src\parse.c" />

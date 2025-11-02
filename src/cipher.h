@@ -14,6 +14,8 @@ extern OSSL_LIB_CTX* glib_ctx;
 extern OSSL_LIB_CTX* openssl_init(void);
 extern void openssl_exit(OSSL_LIB_CTX* ctx);
 
+extern void openssl_err_msg(void);
+
 struct final_secret {
 	unsigned char key[EVP_MAX_KEY_LENGTH];
 	unsigned char iv[EVP_MAX_IV_LENGTH];
@@ -272,5 +274,87 @@ extern int aes_gcm_dec(struct tls_cipher* ptls_cipher,
 //AES_256_GCM: 32B
 #define aes_gcm_set(enc, key, iv, aad) \
 	tls_cipher_set(enc, key, 32, iv, 12, aad, SSL3_RT_HEADER_LENGTH)
+
+//RSA
+ 
+/*
+* in:
+*der = 1 : DER format
+* der = 0 : PEM format
+*
+*public = 1, get pub key, cert
+* public = 0, get private key
+*
+*call EVP_PKEY_free(pkey); after use it
+*/
+extern EVP_PKEY* rsa_get_key_fromfile(char* filename, int der, int public);
+
+//key: private key, caller free buffer 'out' by OPENSSL_free(out)
+extern int ras_encrypt(const unsigned char* key, size_t key_len,
+	const unsigned char* in, size_t in_len,
+	unsigned char** out, size_t* out_len);
+
+//key: public key, caller free buffer 'out' by OPENSSL_free(out)
+extern int rsa_decrypt(const unsigned char* key, size_t key_len,
+	const unsigned char* in, size_t in_len,
+	unsigned char** out, size_t* out_len);
+
+extern int rsa_decrypt_key(EVP_PKEY* pkey,
+	const unsigned char* in, size_t in_len,
+	unsigned char** out, size_t* out_len);
+
+extern int ras_encrypt_key(EVP_PKEY* pkey,
+	const unsigned char* in, size_t in_len,
+	unsigned char** out, size_t* out_len);
+
+extern void print_cert_ext(X509* x, int nid);
+
+/* RSA_PKCS1_PADDING
+return:
+*	1 is OK
+*	0 is failed
+*/
+extern int rsa_sign(EVP_PKEY* pkey,
+	unsigned char* in, int in_len, unsigned char** out, size_t* out_len);
+
+extern int rsa_sign_pss(EVP_PKEY* pkey,
+	unsigned char* in, int in_len, unsigned char** out, size_t* out_len);
+
+// TBS: To Be Signed
+//unsigned char hash[EVP_MAX_MD_SIZE]
+extern int cert_tbs_hash(X509* x, unsigned char* hash);
+
+/*
+* RSA_PKCS1_PADDING
+return:
+*	1 is OK
+*	0 is failed
+*/
+extern int rsa_verify_sign(EVP_PKEY* pkey, unsigned char* hash, int hash_len, unsigned char* sig, size_t sig_len);
+
+extern int rsa_verify_sign_pss(EVP_PKEY* pkey, unsigned char* hash, int hash_len, unsigned char* sig, size_t sig_len);
+
+/*
+ * Size of the to-be-signed TLS13 data, without the hash size itself:
+ * 64 bytes of value 32, 33 context bytes, 1 byte separator
+ */
+#define TLS13_TBS_START_SIZE            64
+#define TLS13_TBS_PREAMBLE_SIZE         (TLS13_TBS_START_SIZE + 33 + 1)
+
+/*
+* openssl-3.5.4\ssl\statem\statem_lib.c. get_cert_verify_tbs_data
+unsigned char tls13tbs[TLS13_TBS_PREAMBLE_SIZE + EVP_MAX_MD_SIZE];
+get_cert_verify_tbs_data(tls13tbs, TLS_ST_SW_CERT_VRFY, hash, hash_len);
+
+return: real length of tls13tbs
+	tls13tbs[ret]
+*/
+extern int get_cert_verify_tbs_data(unsigned char* tls13tbs, int state,
+	unsigned char* hdata, size_t hdatalen); //in: hdata[hdatalen]
+
+/*
+* Signature Algorithm: sha256
+*/
+extern int calc_hash256(char* data, int len, unsigned char* hash);
 
 #endif

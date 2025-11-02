@@ -1,0 +1,62 @@
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number:
+            6d:62:b5:d7:db:ff:af:0f:ac:f5:5c:7b:43:94:5c:96:2f:7f:a1:4a
+        Signature Algorithm: sha256WithRSAEncryption
+        Issuer: C=CN, CN=albert-CA
+        Validity
+            Not Before: Oct  6 23:57:46 2025 GMT
+            Not After : Jul 26 23:57:46 2028 GMT
+        Subject: C=CN, CN=albert
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+                Public-Key: (2048 bit)
+                Modulus:
+                    00:94:d9:59:d3:a3:05:a7:80:c4:5e:b0:d2:dc:fd:
+                    34:88:c0:c3:37:16:9f:4b:d8:8d:ff:61:f8:76:76:
+                    79:8e:50:03:20:9c:65:76:69:d8:1e:7f:7c:b5:2f:
+                    e7:92:6d:aa:a4:cd:dc:ee:23:ac:36:3c:c8:c6:3a:
+                    22:af:6a:0c:3d:03:20:22:97:3b:51:89:8d:6b:62:
+                    fa:4b:d9:20:31:a3:11:a9:53:3b:46:fd:c0:7f:11:
+                    fc:8c:5e:e5:cf:3e:4e:97:6d:58:e5:91:4c:ae:2b:
+                    53:b4:93:37:a2:fb:14:d0:a9:f5:35:2a:6b:01:40:
+                    f7:68:71:73:6d:fd:c8:fa:be:57:43:78:a9:fe:47:
+                    16:a2:0b:6a:85:f7:98:ad:ba:df:08:23:42:13:30:
+                    8c:8e:cb:26:c8:85:e3:10:2c:61:92:31:8d:0e:77:
+                    b6:f0:78:a3:46:c5:ab:99:01:7e:25:03:0f:9b:58:
+                    32:36:4b:1d:8e:05:57:45:b3:3d:17:84:d9:c0:29:
+                    7c:6f:11:80:5b:4b:56:bf:46:47:c6:6a:16:3f:dd:
+                    f7:2d:0f:c1:5c:10:77:0e:b7:cb:1c:b9:09:d8:ff:
+                    32:b9:c5:2a:9f:68:66:c5:fb:b0:0e:7d:76:2d:65:
+                    53:10:dc:46:5b:cc:1b:cb:42:39:17:60:6d:e4:dc:
+                    58:05
+                Exponent: 65537 (0x10001)
+        X509v3 extensions:
+            X509v3 Authority Key Identifier: 
+                F4:64:15:CC:48:8E:E9:0D:32:99:71:F1:F9:5C:3C:B0:18:EA:65:3B
+            X509v3 Basic Constraints: 
+                CA:FALSE
+            X509v3 Key Usage: 
+                Digital Signature, Non Repudiation, Key Encipherment, Data Encipherment
+            X509v3 Subject Alternative Name: 
+                DNS:localhost, DNS:num1.local, DNS:num2.local
+            X509v3 Subject Key Identifier: 
+                C3:6C:2C:05:5D:75:B5:F8:3B:D4:0F:D0:6D:5F:7F:A0:00:75:16:93
+    Signature Algorithm: sha256WithRSAEncryption
+    Signature Value:
+        99:1e:1e:39:ee:96:4c:c7:62:f2:9b:ec:3d:f1:1b:e9:14:79:
+        e9:97:b5:33:ce:8f:3a:cb:cd:df:db:04:66:8b:c8:2a:63:87:
+        ce:02:74:af:e6:da:8d:44:78:2e:e5:20:67:50:8f:62:d1:88:
+        b0:0e:0f:39:60:7f:7c:57:ee:d9:f3:61:ad:58:a3:7b:d5:db:
+        bc:c7:45:1a:23:db:4d:56:4c:5f:be:89:31:ad:e6:3b:a3:67:
+        9e:5b:52:a9:db:7b:9c:71:84:73:0e:82:cd:ee:b1:ad:18:e6:
+        f8:dc:e4:37:c3:3d:55:76:13:4c:0b:0f:da:68:f8:bc:3c:f4:
+        ac:66:55:57:ef:0e:f9:d3:36:43:31:e7:09:09:2b:71:46:83:
+        24:30:5b:49:cf:14:44:0f:ab:db:9a:c9:d4:52:14:78:ff:5f:
+        0e:b3:06:ef:46:b4:44:52:cd:24:81:88:7c:87:3b:19:c0:66:
+        18:4b:6e:c3:97:81:1b:a2:f1:3d:74:12:a1:e8:ee:18:2d:f8:
+        26:44:ee:47:0f:43:fa:37:36:82:d1:a1:20:ca:9f:95:b2:1a:
+        56:24:93:2c:6c:d9:d0:75:0f:f1:03:a3:bd:b5:cb:81:ce:2d:
+        a3:1e:8a:88:b4:48:aa:eb:38:a9:b7:73:2c:af:2b:71:6a:e5:
+        90:27:57:93

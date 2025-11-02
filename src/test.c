@@ -2,6 +2,10 @@
 #include "openssl/evp.h"
 #include "openssl/sha.h"
 #include "openssl/err.h"
+#include "openssl/x509.h"
+#include "openssl/x509v3.h"
+#include "openssl/safestack.h"
+#include "openssl/pem.h"
 
 #include "parse.h"
 #include "cipher.h"
@@ -357,5 +361,341 @@ void test_secrets(void)
 	compare_result("server application key", sats_start_key, sats_key, 32);
 	derive_iv(sats, sats_iv);
 	compare_result("server application IV", sats_start_iv, sats_iv, 12);
+}
 
+time_t ASN1_TIME_to_time_t(const ASN1_TIME* asn1_time) 
+{
+	struct tm tm;
+	memset(&tm, 0, sizeof(tm));
+
+	if (!ASN1_TIME_to_tm(asn1_time, &tm)) {
+		return 0;
+	}
+
+	return mktime(&tm);
+}
+
+X509* get_cert(char* path)
+{
+	FILE* fp = fopen(path, "r");
+	if (!fp)
+		return NULL;
+	X509* x = PEM_read_X509(fp, NULL, NULL, NULL);
+	fclose(fp);
+	return x;
+}
+
+int print_cert(void)
+{
+	X509 * x = get_cert("res\\certs\\server.crt");
+	BIO* b = BIO_new_fp(stdout, BIO_NOCLOSE);
+
+	//RFC5280
+	//print useful information
+	printf("X509 Certificate information\n");
+
+	//Version: 3 (0x2)
+	//Version  ::=  INTEGER  {  v1(0), v2(1), v3(2)  }
+	long version = X509_get_version(x);
+	printf("version: %ld(0x%x)\n", version + 1, version);
+
+	//Signature Algorithm: sha256WithRSAEncryption
+	//const X509_ALGOR* tsig_alg = X509_get0_tbs_sigalg(x);
+	int mdnid, pknid;
+	//md: Message Digest algorithm, NID_sha384, NID_sha256
+	//pk: Public Key algorithm, NID_rsaEncryption, NID_dsa
+	X509_get_signature_info(x, &mdnid, &pknid,NULL, NULL);
+	printf("%s With %s\n", OBJ_nid2ln(mdnid), OBJ_nid2ln(pknid));
+
+	EVP_PKEY* pkey = X509_get0_pubkey(x);
+	int bits = EVP_PKEY_bits(pkey);
+	int bytes = EVP_PKEY_size(pkey);
+	printf("Public-Key: (%d bit) (%d byte)\n", bits, bytes); //Public-Key: (2048 bit)
+
+	// Subject: CN=albert
+	X509_NAME* subject = X509_get_subject_name(x);
+	char common_name[256];
+	int ret;
+	ret = X509_NAME_get_text_by_NID(subject, NID_commonName, common_name, sizeof(common_name));
+	if (ret > 0)
+		printf("comman name(CN) = %s\n", common_name);
+
+	//Issuer: CN=albert-CA
+	subject = X509_get_issuer_name(x);
+	ret = X509_NAME_get_text_by_NID(subject, NID_commonName, common_name, sizeof(common_name));
+	if (ret > 0)
+		printf("Issuer: CN = %s\n", common_name);
+	
+	/* Validity
+	 Not Before: Oct  6 23:57:46 2025 GMT
+     Not After : Jul 26 23:57:46 2028 GMT
+	*/
+	const ASN1_TIME* not_before = X509_get0_notBefore(x);
+	const ASN1_TIME* not_after = X509_get0_notAfter(x);
+	time_t current_time = time(NULL);
+	time_t start_time = ASN1_TIME_to_time_t(not_before);
+	time_t end_time = ASN1_TIME_to_time_t(not_after);
+	if (current_time < start_time) {
+		printf("not valid\n");
+	} else if (current_time > end_time) {
+		printf("over time\n");
+	} else {
+		printf("Validity\n");
+		printf("    Not Before: ");
+		ASN1_TIME_print(b, not_before);
+		printf("\n");
+		printf("    Not After : ");
+		ASN1_TIME_print(b, not_after);
+		printf("\n");
+	}
+
+//STACK of all the extensions of a certificate
+/*
+	The following certificate extensions are defined in PKIX standards such as RFC5280.
+Basic Constraints                  NID_basic_constraints
+Key Usage                          NID_key_usage
+Extended Key Usage                 NID_ext_key_usage
+
+Subject Key Identifier             NID_subject_key_identifier
+Authority Key Identifier           NID_authority_key_identifier
+
+Private Key Usage Period           NID_private_key_usage_period
+
+Subject Alternative Name           NID_subject_alt_name
+Issuer Alternative Name            NID_issuer_alt_name
+*/
+	printf("\nX509v3 extensions:\n\n");
+	print_cert_ext(x, NID_authority_key_identifier);
+	print_cert_ext(x, NID_basic_constraints);
+	print_cert_ext(x, NID_key_usage);
+	print_cert_ext(x, NID_subject_alt_name);
+	print_cert_ext(x, NID_subject_key_identifier);
+
+	const ASN1_BIT_STRING* psig = NULL;
+	X509_get0_signature(&psig, NULL, x);
+	printf("sig value:\n");
+	BIO_dump_indent_fp(stdout, psig->data, psig->length, 2);
+
+	printf("\n\n");
+	//X509_print(b, x);
+
+	X509_free(x);
+	BIO_free(b);
+	return 0;
+}
+
+int test_rsa(void)
+{
+	int ret = EXIT_FAILURE;
+	const unsigned char* msg = "hello world";
+	size_t msg_len = strlen(msg);
+	size_t encrypted_len = 0, decrypted_len = 0;
+	unsigned char* encrypted = NULL, * decrypted = NULL;
+
+	EVP_PKEY* pubkey = NULL;
+	EVP_PKEY* prikey = NULL;
+	pubkey = rsa_get_key_fromfile("res\\certs\\server.crt", 0, 1);
+	if (!pubkey)
+		goto cleanup;
+	prikey = rsa_get_key_fromfile("res\\certs\\server.key", 0, 0);
+	if (!prikey)
+		goto cleanup;
+
+	//encrypt by public key
+	if (!ras_encrypt_key(pubkey,
+		msg, msg_len, &encrypted, &encrypted_len)) {
+		fprintf(stderr, "encryption failed.\n");
+		goto cleanup;
+	}
+
+	//decrypt by private key
+	if (!rsa_decrypt_key(prikey,
+		encrypted, encrypted_len,
+		&decrypted, &decrypted_len)) {
+		fprintf(stderr, "decryption failed.\n");
+		goto cleanup;
+	}
+
+	if (CRYPTO_memcmp(msg, decrypted, decrypted_len) != 0) {
+		fprintf(stderr, "Decrypted data does not match expected value\n");
+		goto cleanup;
+	}
+	printf("RSA Decrypted data match:\n%s\n", msg);
+	ret = EXIT_SUCCESS;
+
+cleanup:
+	if(pubkey)
+		EVP_PKEY_free(pubkey);
+	if (prikey)
+		EVP_PKEY_free(prikey);
+	if(decrypted)
+		OPENSSL_free(decrypted);
+	if(encrypted)
+		OPENSSL_free(encrypted);
+
+	if (ret != EXIT_SUCCESS)
+		ERR_print_errors_fp(stderr);
+	return ret;
+}
+
+int test_rsa_ext(void)
+{
+	int ret = EXIT_FAILURE;
+	const unsigned char* msg = "hello world";
+	size_t msg_len = strlen(msg);
+	size_t encrypted_len = 0, decrypted_len = 0;
+	unsigned char* encrypted = NULL, * decrypted = NULL;
+
+	unsigned char content[2048];
+	int content_len;
+	FILE* fp = fopen("res\\certs\\server.bin", "rb");
+	content_len = (int)fread(content, 1, 2048, fp);
+	fclose(fp);
+	ret = ras_encrypt(content, content_len, msg, msg_len, &encrypted, &encrypted_len);
+
+	fp = fopen("res\\certs\\server_pri.bin", "rb");
+	content_len = (int)fread(content, 1, 2048, fp);
+	fclose(fp);
+	ret = rsa_decrypt(content, content_len, encrypted, encrypted_len, &decrypted, &decrypted_len);
+	if (!memcmp(msg, decrypted, decrypted_len))
+		printf("RSA ext Decrypted data match:\n%s\n", msg);
+
+	if (decrypted)
+		OPENSSL_free(decrypted);
+	if (encrypted)
+		OPENSSL_free(encrypted);
+
+	return 0;
+}
+
+/*
+ * This function demonstrates RSA signing of a SHA-256 digest using the PSS
+ * padding scheme. You must already have hashed the data you want to sign.
+ * For a higher-level demonstration which does the hashing for you, see
+ * rsa_pss_hash.c.
+ *
+ * For more information, see RFC 8017 section 9.1. The digest passed in
+ * (test_digest above) corresponds to the 'mHash' value.
+ */
+static int test_sign(void)
+{
+	int ret = 0;
+	EVP_PKEY* pkey = NULL;
+	size_t sig_len;
+	unsigned char* sig = NULL;
+
+	X509* x;
+	x = get_cert("res\\certs\\server.crt");
+	if (!x)
+		return -1;
+
+	//calc hash
+	const ASN1_BIT_STRING* psig;
+	X509_get0_signature(&psig, NULL, x);
+
+	int hash_len = 32;
+	unsigned char hash[EVP_MAX_MD_SIZE];
+	cert_tbs_hash(x, hash);
+
+	//private key
+	pkey = rsa_get_key_fromfile("res\\certs\\RootCA.key", 0, 0);
+	if (!pkey)
+		goto end;
+	ret = rsa_sign(pkey, hash, hash_len, &sig, &sig_len);
+	if (ret && !memcmp(psig->data, sig, sig_len))
+		printf("Passed for Cal sign value\n");
+	else
+		printf("Failed for Cal sign value\n");
+#if 0
+	fprintf(stdout, "sig value:\n");
+	BIO_dump_indent_fp(stdout, sig, (int)sig_len, 2);
+	fprintf(stdout, "\n");
+#endif
+	ret = 1;
+
+end:
+	X509_free(x);
+	EVP_PKEY_free(pkey);
+	OPENSSL_free(sig);
+
+	return ret;
+}
+
+static int verify_sign(void)
+{
+	int ret = 0;
+	EVP_PKEY* pkey = NULL;
+	X509* x = NULL;
+
+	//openssl x509 -in RootCA.crt -pubkey -noout > public_key.pem
+	pkey = rsa_get_key_fromfile("res\\certs\\RootCA.crt", 0, 1);
+	if (!pkey)
+		goto end;
+
+	x = get_cert("res\\certs\\server.crt");
+
+	int hash_len = 32;
+	unsigned char hash[EVP_MAX_MD_SIZE];
+	cert_tbs_hash(x, hash);
+
+	const ASN1_BIT_STRING* psig = NULL;
+	X509_get0_signature(&psig, NULL, x);
+
+	ret = rsa_verify_sign(pkey, hash, hash_len, psig->data, psig->length);
+	if(ret)
+		printf("Passed for Verify signature\n");
+	else
+		printf("Failed for Verify signature\n");
+
+end:
+	X509_free(x);
+	EVP_PKEY_free(pkey);
+	return ret;
+}
+
+//create sign of msg by private key;
+//verify sign by public key
+static int verify_sign_pss(void)
+{
+	int ret = 0;
+	unsigned char* sig = NULL;
+	size_t sig_len;
+
+	EVP_PKEY* pubkey = NULL;
+	EVP_PKEY* prikey = NULL;
+	pubkey = rsa_get_key_fromfile("res\\certs\\server.crt", 0, 1);
+	if (!pubkey)
+		goto end;
+	prikey = rsa_get_key_fromfile("res\\certs\\server.key", 0, 0);
+	if (!prikey)
+		goto end;
+
+	char msg[] = "hello world";
+	int msg_len = (int)strlen(msg);
+	//create 256 bytes sign, used private key
+	ret = rsa_sign_pss(prikey, msg, msg_len, &sig, &sig_len);
+	if (!ret)
+		goto end;
+
+	//verify sign, used public key
+	ret = rsa_verify_sign_pss(pubkey, msg, msg_len, sig, sig_len);
+	if (ret)
+		printf("Passed for PSS Verify signature\n");
+	else
+		printf("Failed for PSS Verify signature\n");
+
+end:
+	OPENSSL_free(sig);
+	EVP_PKEY_free(pubkey);
+	EVP_PKEY_free(prikey);
+	return ret;
+}
+
+
+int test_cert(void)
+{
+	test_sign();
+	verify_sign();
+	verify_sign_pss();
+	return 0;
 }

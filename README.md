@@ -40,13 +40,13 @@ cmake：4.0.4，编译工具
 
 
 
-程序输入：release\res\s_connect.pcapng ， 客户端ECDHE私钥（写在代码中）
+程序输入：release\res\packets\s_connect.pcapng ， 客户端ECDHE私钥（写在代码中）
 
 程序功能：测试从 ECDHE 私钥到最终密钥的计算，解密 https
 
 程序输出： index.html
 
-程序输出是否正确，可以和 release\res\index.html  对比。
+程序输出是否正确，可以和 release\res\other\index.html  对比。
 
 两个文件一样，则输出正确。
 
@@ -108,13 +108,11 @@ main.c：主程序入口
 
 parse.c：TLS 包解析
 
-cert.c：https 证书
-
 t1_trce.c：一些字符串资源。从openssl源代码拷贝 openssl-3.5.4\ssl\t1_trce.c
 
 tools.c：一些小工具
 
-
+test.c：测试程序
 
 ------
 
@@ -126,11 +124,15 @@ tools.c：一些小工具
 
 程序输入资源如下：
 
-release\res\s_connect.pcapng：Wireshark 抓取的 TLS 通讯
-
-
+release\res\packets\s_connect.pcapng：Wireshark 抓取的 TLS 通讯
 
 如何产生 s_connect.pcapng，以下具体说明。
+
+
+
+localhost_s.pcapng：edge 浏览器和本地https 通讯
+
+localhost_s.keys：wireshark 输出的对话密钥
 
 
 
@@ -199,7 +201,34 @@ wireshark ：文件 - 导出特定分组 - 仅选中分组，保存为文件：
 
 这个文件作为程序的输入。
 
-![wireshark_s_connect](./release/res/wireshark_s_connect.jpg)
+![wireshark_s_connect](release/res/other/wireshark_s_connect.jpg)
+
+
+
+## 3 - 证书
+
+
+
+搭建服务器时，生成4个文件，都是 PEM 格式的：
+
+1. RootCA.crt：根服务器证书
+2. RootCA.key：根服务器私钥
+3. server.crt：网站证书
+4. server.key：网站私钥
+5. server.txt： 网站证书内容，解码后
+
+
+
+```bash
+# 从 PEM 格式证书提取公钥，输出为 der 格式
+openssl x509 -in server.crt -pubkey -noout | openssl pkey -pubin -outform der -out server.bin
+
+# 私钥从 PEM 转为 der
+openssl pkey -in server.key -outform der -out server_pri.bin
+
+# 查看证书内容
+openssl x509 -in server.crt -text -noout > server.txt
+```
 
 
 
@@ -273,7 +302,7 @@ ENABLE_REMOTE=false
 
 ENABLE_REMOTE=false，告诉编译器无需链接 OpenSSL 库。
 
-![cmake](./release/res/cmake.jpg)
+![cmake](./release/res/other/cmake.jpg)
 
 点击：configure, generate，生成 VS2019 工程项目
 
@@ -335,7 +364,7 @@ RFC 5280： X.509 证书
 
 RFC 2818：HTTP Over TLS，HTTPS
 
-OpenSSL 源代码： 用 gvim, ctags, csope, grep 工具分析学习
+OpenSSL 源代码： 用 gvim, ctags, cscope, grep 工具分析学习
 
 
 
@@ -371,6 +400,12 @@ OpenSSL 源代码： 用 gvim, ctags, csope, grep 工具分析学习
 
 [openssl-10-加密5-解密https - 知乎](https://zhuanlan.zhihu.com/p/1965295237258785537)
 
+[openssl-11-加密6-解密总结 - 知乎](https://zhuanlan.zhihu.com/p/1965672870379249921)
+
+[openssl-12-https证书1-解析证书 - 知乎](https://zhuanlan.zhihu.com/p/1968215676352169633)
+
+
+
 
 
 # 注意
@@ -387,7 +422,7 @@ OpenSSL 源代码： 用 gvim, ctags, csope, grep 工具分析学习
 
 
 
-## 2025年
+**2025年**
 
 10/11：开始开发
 
@@ -402,4 +437,14 @@ OpenSSL 源代码： 用 gvim, ctags, csope, grep 工具分析学习
 10/24：一次抓包，可以记录 ECDHE 私钥（所有会话密钥）和下载网页;
 
 10/25：完成解析，并且下载https 通讯中的网页 index.html 到本地。
+
+11/1完成握手包  Certificate Verify 中签名值的验证；完成证书验证。
+
+虽然有服务器私钥，但是不能计算 Certificate Verify 的签名值。
+
+因为采用了 PSS 填充，其中包含随机数，所以每次的签名值不同。
+
+可以验证签名，但是无法生成和握手包中相同的签名值。
+
+
 

@@ -2,7 +2,7 @@
 
 ## Description
 
-input : release\res\s_connect.pcapng,  ECDHE private key
+input : release\res\packets\s_connect.pcapng,  ECDHE private key of client
 
 output:  index.html
 

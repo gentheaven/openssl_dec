@@ -54,6 +54,29 @@ void test_code(void)
 
 	test_aesgcm();
 	printf("%s\n", separte_line);
+
+	test_rsa();
+	test_rsa_ext();
+	printf("%s\n", separte_line);
+
+	print_cert();
+	test_cert();
+	printf("%s\n", separte_line);
+}
+
+void test_s_connect(void)
+{
+	parse_init();
+	parse_packets("res\\packets\\s_connect.pcapng", 7);
+	parse_exit();
+}
+
+void test_browser(void)
+{
+	parse_init();
+	read_secrets("res\\packets\\localhost_s.keys");
+	parse_packets("res\\packets\\localhost_s.pcapng", 7);
+	parse_exit();
 }
 
 int main(int argc, char** argv)
@@ -66,11 +89,8 @@ int main(int argc, char** argv)
 
 	//test_code();
 	//test_secrets();
-
-	parse_init();
-	parse_packets("res\\s_connect.pcapng", 7);
-	parse_exit();
-
+	test_s_connect();
+	//test_browser();
 
 	openssl_exit(ctx);
 }

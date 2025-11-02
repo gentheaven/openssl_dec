@@ -156,7 +156,7 @@ struct TLSRecord {
 
 struct TLSHandshake {
     uint8_t msg_type;    /* handshake type */
-    uint8_t length[3];             /* bytes in message */
+    uint8_t length[3];   /* bytes in message */
     char* body;
 };
 
@@ -244,6 +244,87 @@ struct new_session_ticket {
 };
 #define NEW_SESSION_TICKET_NONCE_OFFSET 9
 
+/* 4.4.2. Certificate
+enum {
+    X509(0),
+    RawPublicKey(2),
+    (255)
+} CertificateType;
+
+struct {
+    select (certificate_type) {
+        case RawPublicKey:
+        // From RFC 7250 ASN.1_subjectPublicKeyInfo
+        opaque ASN1_subjectPublicKeyInfo<1..2 ^ 24 - 1>;
+
+        case X509:
+            opaque cert_data<1..2 ^ 24 - 1>;
+    };
+    Extension extensions<0..2 ^ 16 - 1>;
+} CertificateEntry;
+
+struct {
+    opaque certificate_request_context<0..2 ^ 8 - 1>;
+    CertificateEntry certificate_list<0..2 ^ 24 - 1>;
+} Certificate;
+
+certificate_list:  A sequence (chain) of CertificateEntry structures,
+      each containing a single certificate and set of extensions.
+*/
+
+struct cert_extension {
+    uint16_t len;
+    char* ext;//ext[len]
+};
+
+struct CertificateEntry {
+    uint8_t cert_data_len[3];   /* bytes in message */
+    char* cert_data; //body[cert_data_len]
+    //Extension extensions<0..2 ^ 16 - 1>;
+};
+#define CERT_EXT_OFFSET(len) (3 + len)
+
+
+struct Certificate {
+    uint8_t request_context_len;
+    char* request_context; //request_context[request_context_len]
+    //certificate_list
+};
+#define CERTIFICATE_OFFSET(len) (1 + len)
+
+struct CertificateEntry_list {
+    uint8_t cert_list_len[3];   // certificate_list total bytes
+    struct CertificateEntry* entrys;
+};
+
+
+/* RFC8446 4.4.3. Certificate Verify
+enum {
+    // RSASSA-PKCS1-v1_5 algorithms
+    rsa_pkcs1_sha256(0x0401),
+    rsa_pkcs1_sha384(0x0501),
+    rsa_pkcs1_sha512(0x0601),
+    ...
+
+     // RSASSA-PSS algorithms with public key OID rsaEncryption
+    rsa_pss_rsae_sha256(0x0804),
+    rsa_pss_rsae_sha384(0x0805),
+    rsa_pss_rsae_sha512(0x0806),
+}SignatureScheme;
+
+struct {
+    SignatureScheme algorithm;
+    opaque signature<0..2 ^ 16 - 1>;
+} CertificateVerify;
+
+*/
+struct CertificateVerify {
+    uint16_t algorithm;
+    uint16_t signature_len;
+    char* signature;
+};
+
+
 #pragma pack(pop)
 
 //copied from openssl-3.5.4-src\openssl-3.5.4\ssl\t1_trce.c
@@ -265,6 +346,7 @@ extern size_t ssl_ciphers_tbl_num;
 extern size_t ssl_content_tbl_num;
 
 extern const char* do_ssl_trace_str(int val, const ssl_trace_tbl* tbl, size_t ntbl);
+extern const char* got_SignatureScheme_name(uint16_t id);
 
 /* Sigalgs values */
 #define TLSEXT_SIGALG_ecdsa_secp256r1_sha256                    0x0403

@@ -66,13 +66,16 @@ struct parse_info {
 	u_int hash_len;
 	//secrets
 	int mid_secrets_done; //finished cal handshake_traffic_hash and 4 secrets
-	unsigned char handshake_traffic_hash[EVP_MAX_MD_SIZE];
 	unsigned char pms[X25519_KEYLEN]; //pre-master key
 	unsigned char early[EVP_MAX_MD_SIZE];
 	unsigned char handshake[EVP_MAX_MD_SIZE];
 	unsigned char master[EVP_MAX_MD_SIZE];
 
+	unsigned char handshake_traffic_hash[EVP_MAX_MD_SIZE];
+	int handshake_traffic_hash_done;
+
 	unsigned char server_finished_hash[EVP_MAX_MD_SIZE];
+	int server_finished_hash_done;
 
 	int handshake_secrets_done; //finished cal handshake_traffic_secret
 	int app_secrets_done; //finished cal application_traffic_secret
@@ -92,6 +95,10 @@ struct parse_info {
 	//client_application_traffic_secret_0: cats
 	unsigned char cats[EVP_MAX_MD_SIZE];
 	struct final_secret cats_keys;
+
+	//cert
+	char* cert;
+	int cert_len;
 
 	//http parser
 	llhttp_t parser;
@@ -189,14 +196,14 @@ void record_handshake_len(int type, char* buf, int len)
 * start type: client hello
 * end type: input parameter
 */
-int calc_hash(int end_type, unsigned char* out)
+int calc_hash(int end_type, unsigned char* out, char* algo)
 {
 	EVP_MD_CTX* md_ctx = NULL;
 
 	struct parse_info* parse = &gParse_info;
 	struct digest_content* dc = parse->mdc;
 
-	md_ctx = digest_init(glib_ctx, "SHA384");
+	md_ctx = digest_init(glib_ctx, algo);
 	int total_len = 0;
 	while (1) {
 		if (end_type == dc->msg_type) {
@@ -375,14 +382,18 @@ return:
 int  calc_handshake_secrets(void)
 {
 	struct parse_info* parse = &gParse_info;
+
+	if (!parse->handshake_traffic_hash_done) {
+		calc_hash(SSL3_MT_SERVER_HELLO, parse->handshake_traffic_hash, "SHA384");
+		parse->handshake_traffic_hash_done = 1;
+	}
+
 	if (parse->mid_secrets_done)
 		return EXIT_SUCCESS;
 	if (parse->group != 29 || parse->cipher_suite != 0x1302)
 		return EXIT_FAILURE;
 	printf("\ncalc server_handshake_traffic_secret hash\n");
 	printf("cipher suite: TLS_AES_256_GCM_SHA384, group: ecdh_x25519\n");
-
-	calc_hash(SSL3_MT_SERVER_HELLO, parse->handshake_traffic_hash);
 
 	int sha_len = parse->hash_len;
 	print_hex("handshake hash: ", parse->handshake_traffic_hash, sha_len);
@@ -475,9 +486,10 @@ verify data
 void calc_hsfin_hash(void)
 {
 	struct parse_info* parse = &gParse_info;
-	if (parse->app_secrets_done)
+	if (parse->server_finished_hash_done)
 		return;
-	calc_hash(SSL3_MT_FINISHED, parse->server_finished_hash);
+	calc_hash(SSL3_MT_FINISHED, parse->server_finished_hash, "SHA384");
+	parse->server_finished_hash_done = 1;
 	//print_hex("server_finished_hash:\n", parse->server_finished_hash, parse->hash_len);
 }
 
@@ -531,7 +543,7 @@ void verify_data(int c2s, char* server_data)
 	} else {
 		secret = parse->shts;
 		pre = get_previous_type(parse->mdc, SSL3_MT_FINISHED);
-		calc_hash(pre, hash);
+		calc_hash(pre, hash, "SHA384");
 	}
 	
 	//finished_key = HKDF-Expand-Label(BaseKey, Label, "", HashLength)
@@ -617,6 +629,38 @@ void parse_key_share(int client, struct hello_extension* head)
 	printf("\n");
 }
 
+/*
+RFC7301: Application - Layer Protocol Negotiation
+opaque ProtocolName<1..2^8-1>;
+
+   opaque ProtocolName<1..2^8-1>;
+
+   struct {
+	   ProtocolName protocol_name_list<2..2^16-1>
+   } ProtocolNameList;
+*/
+void parse_alpn(int c2s, struct hello_extension* head)
+{
+	char* cur = (char*)head;
+	int total_len = ntohs(head->length);
+	cur = cur + 4;
+
+	//protocol_name_list
+	int name_list_len = PACKET_GET_2(cur);
+	cur += 2;
+
+	//ProtocolName: http/1.1
+	int len, offset;
+	total_len = name_list_len;
+	while (total_len > 0) {
+		len = *cur;
+		print_char("ALPN protocol name: ", cur + 1, len);
+		offset = len + 1;
+		cur += offset;
+		total_len -= offset;
+	}
+}
+
 void parse_hello_ext(int c2s, char* buf, u_int len)
 {
 	uint16_t cipher_len = PACKET_GET_2(buf);
@@ -652,6 +696,9 @@ void parse_hello_ext(int c2s, char* buf, u_int len)
 			break;
 		case TLSEXT_TYPE_key_share:
 			parse_key_share(c2s, head);
+			break;
+		case TLSEXT_TYPE_application_layer_protocol_negotiation:
+			parse_alpn(c2s, head);
 			break;
 		default:
 			break;
@@ -739,7 +786,7 @@ void parse_chello(int client, char* buf, u_int len)
 }
 
 //uint8_t length[3];  bytes in message
-int get_handshake_len(uint8_t* ptr)
+int get_3Bytes_len(uint8_t* ptr)
 {
 	int len;
 	memcpy(&len, ptr, 3);
@@ -829,6 +876,172 @@ void parse_http(int c2s, char* buf, u_int len)
 	llhttp_execute(parser, buf, len);
 }
 
+void output_cert(char* buf, int len)
+{
+	struct parse_info* parser = &gParse_info;
+	parser->cert = buf;
+	parser->cert_len = len;
+#if 0
+	printf("write certification content to file server_cert.bin\n");
+	//write to file
+	FILE* fp = fopen("server_cert.bin", "wb");
+	fwrite(buf, 1, len, fp);
+	fclose(fp);
+#endif
+	//print cert information
+	printf("*********** parsing cert ***********\n");
+
+	X509* x;
+	const unsigned char* p = buf;
+	x= d2i_X509(NULL, &p, len);
+
+	//Signature Algorithm: sha256WithRSAEncryption
+	int mdnid, pknid;
+	X509_get_signature_info(x, &mdnid, &pknid, NULL, NULL);
+	printf("%s With %s\n", OBJ_nid2ln(mdnid), OBJ_nid2ln(pknid));
+
+	// Subject: CN=albert
+	X509_NAME* subject = X509_get_subject_name(x);
+	char common_name[256];
+	int ret;
+	ret = X509_NAME_get_text_by_NID(subject, NID_commonName, common_name, sizeof(common_name));
+	if (ret > 0)
+		printf("comman name(CN) = %s\n", common_name);
+
+	//Issuer: CN=albert-CA
+	subject = X509_get_issuer_name(x);
+	ret = X509_NAME_get_text_by_NID(subject, NID_commonName, common_name, sizeof(common_name));
+	if (ret > 0)
+		printf("Issuer: CN = %s\n", common_name);
+
+	/* Validity
+	 Not Before: Oct  6 23:57:46 2025 GMT
+	 Not After : Jul 26 23:57:46 2028 GMT
+	*/
+	const ASN1_TIME* not_before = X509_get0_notBefore(x);
+	const ASN1_TIME* not_after = X509_get0_notAfter(x);
+	time_t current_time = time(NULL);
+	BIO* b = BIO_new_fp(stdout, BIO_NOCLOSE);
+	//return -1 if asn1_time is earlier than, or equal to, in_tm
+	if (X509_cmp_time(not_before, &current_time) < 0 &&
+		X509_cmp_time(not_after, &current_time) > 0) {
+		printf("Validity\n");
+		printf("    Not Before: ");
+		ASN1_TIME_print(b, not_before);
+		printf("\n");
+		printf("    Not After : ");
+		ASN1_TIME_print(b, not_after);
+		printf("\n");
+	}
+	BIO_free(b);
+
+	printf("\nX509v3 extensions:\n\n");
+	print_cert_ext(x, NID_authority_key_identifier);
+	print_cert_ext(x, NID_basic_constraints);
+	print_cert_ext(x, NID_key_usage);
+	print_cert_ext(x, NID_subject_alt_name);
+	print_cert_ext(x, NID_subject_key_identifier);
+
+	//Signature Value:
+	const ASN1_BIT_STRING* psig = NULL;
+	X509_get0_signature(&psig, NULL, x);
+	printf("Signature Value:\n");
+	BIO_dump_indent_fp(stdout, psig->data, psig->length, 2);
+
+	printf("***********end parsing cert ***********\n");
+	X509_free(x);
+}
+
+//RFC8446 4.4.2. Certificate
+int parse_certificate(int c2s, char* buf, u_int len)
+{
+	struct Certificate* ct = (struct Certificate*)buf;
+	char* cur = buf;
+
+	//Certificate
+	uint8_t request_context_len = ct->request_context_len;
+	int offset;
+	offset = CERTIFICATE_OFFSET(request_context_len);
+	len -= offset;
+	cur += offset;
+
+	//certificate_list
+	struct CertificateEntry_list* ct_list = (struct CertificateEntry_list*)cur;
+	int ct_list_len;
+	ct_list_len = get_3Bytes_len(ct_list->cert_list_len);
+	cur += 3;
+	int left = ct_list_len;
+
+	int entry_index = 0;
+	//CertificateEntry[i]
+	struct CertificateEntry* entry;
+	int cert_data_len;
+	struct cert_extension* ext;
+	int ext_len;
+	while (left > 0) {
+		entry = (struct CertificateEntry*)cur;
+		cert_data_len = get_3Bytes_len(entry->cert_data_len);
+
+		printf("cert(%d): len is %d bytes\n", entry_index + 1, cert_data_len);
+		output_cert(cur + 3, cert_data_len);
+
+		offset = CERT_EXT_OFFSET(cert_data_len);
+		left -= offset;
+		cur += offset;
+		ext = (struct cert_extension*)cur;
+		ext_len = ntohs(ext->len);
+
+		//ext
+		offset = 2 + ext_len;
+		left -= offset;
+		cur += offset;
+		entry_index++;
+	}
+	printf("total %d certs\n\n", entry_index);
+	return 0;
+}
+
+int client_verify_sig(char* sig, int sig_len, unsigned char* hash)
+{
+	unsigned char tls13tbs[TLS13_TBS_PREAMBLE_SIZE + EVP_MAX_MD_SIZE];
+	int tbs_len;
+	tbs_len = get_cert_verify_tbs_data(tls13tbs, TLS_ST_SW_CERT_VRFY, hash, 48);
+
+	struct parse_info* parser = &gParse_info;
+	X509* x;
+	const unsigned char* p = parser->cert;
+	x = d2i_X509(NULL, &p, parser->cert_len);
+	EVP_PKEY* pkey = X509_get0_pubkey(x);
+	int ret = rsa_verify_sign_pss(pkey, tls13tbs, tbs_len, sig, sig_len);
+	if (ret)
+		printf("client_verify_sig: passed\n");
+
+	X509_free(x);
+	return ret;
+}
+
+//RFC8446 4.4.3. Certificate Verify
+int parse_certificate_verify(int c2s, char* buf, u_int len)
+{
+	struct CertificateVerify* cv = (struct CertificateVerify*)buf;
+	uint16_t algo = htons(cv->algorithm);
+	const char* name = got_SignatureScheme_name(algo);
+	printf("SignatureScheme is %s\n", name);
+
+	char* cur = buf + 4;
+	int sig_len = htons(cv->signature_len);
+	printf("Signature Value:\n");
+	BIO_dump_indent_fp(stdout, cur, sig_len, 2);
+
+	unsigned char hash[EVP_MAX_MD_SIZE];
+	calc_hash(SSL3_MT_CERTIFICATE, hash, "SHA384");
+	//print_hex("Certificate hash:\n", hash, 48);
+
+	client_verify_sig(cur, sig_len, hash);
+	printf("\n");
+	return 0;
+}
+
 //if client recv SSL3_MT_FINISHED msg, return 1; otherwise return 0
 int parse_handleshake(int c2s, char* buf, u_int len)
 {
@@ -844,8 +1057,8 @@ int parse_handleshake(int c2s, char* buf, u_int len)
 	printf("%s\n", name);
 
 	int ext_len;
-	ext_len = get_handshake_len(hsHeader->length);
-	printf("length is %d\n\n", ext_len);
+	ext_len = get_3Bytes_len(hsHeader->length);
+	printf("length is %d\n", ext_len);
 
 	int record_len = ext_len + TLS_HS_LEN;
 	record_handshake_len(hsHeader->msg_type, buf, record_len);
@@ -862,9 +1075,10 @@ int parse_handleshake(int c2s, char* buf, u_int len)
 	case SSL3_MT_ENCRYPTED_EXTENSIONS:
 		break;
 	case SSL3_MT_NEWSESSION_TICKET:
-		//parse_newsession_ticket(c2s, cur, total_len);
+		//parse_newsession_ticket(c2s, cur, ext_len);
 		break;
 	case SSL3_MT_CERTIFICATE:
+		parse_certificate(c2s, cur, ext_len);
 		break;
 	case SSL3_MT_SERVER_KEY_EXCHANGE:
 		break;
@@ -873,6 +1087,7 @@ int parse_handleshake(int c2s, char* buf, u_int len)
 	case SSL3_MT_SERVER_DONE:
 		break;
 	case SSL3_MT_CERTIFICATE_VERIFY:
+		parse_certificate_verify(c2s, cur, ext_len);
 		break;
 	case SSL3_MT_CLIENT_KEY_EXCHANGE:
 		break;
@@ -884,8 +1099,6 @@ int parse_handleshake(int c2s, char* buf, u_int len)
 		if (c2s) {
 			return 1;
 		}
-		break;
-	case SSL3_MT_CHANGE_CIPHER_SPEC:
 		break;
 	default:
 		return 0;
@@ -908,6 +1121,7 @@ void parse_tls(int c2s, char* buf, u_int len)
 	int ret = 0;
 	char* decode;
 	uint8_t type;
+	int finished = 0;
 	while (total_len > 0) {
 		printf("record layer: ");
 		record_len = ntohs(record->length);
@@ -932,14 +1146,15 @@ void parse_tls(int c2s, char* buf, u_int len)
 			decode = cur + TLS_RECORD_LEN;
 			ret = decode_app_data(c2s, decode, record_len, &type);
 			if (ret == EXIT_SUCCESS) {
-				ret = 0;
-				if(SSL3_RT_APPLICATION_DATA == type)
+				if (SSL3_RT_APPLICATION_DATA == type)
 					parse_http(c2s, decode, total_len - TLS_RECORD_LEN);
-				else
-					ret = parse_handleshake(c2s, decode, total_len - TLS_RECORD_LEN);
+				else if (SSL3_RT_HANDSHAKE == type)
+					finished = parse_handleshake(c2s, decode, total_len - TLS_RECORD_LEN);
+				else //SSL3_RT_ALERT or SSL3_RT_CHANGE_CIPHER_SPEC
+					break;
 			}
 			tls_increment_sequence(c2s);
-			if(ret)
+			if(finished)
 				gCypher_state = CYPHER_STATE_APP;
 			break;
 		default:
@@ -1008,3 +1223,36 @@ void parse_packet(int index, char* buf, u_int len)
 	printf("\n\n========================\n");
 }
 
+//xxx, random, secret
+void fill_secret(FILE* fp, unsigned char* dst, struct final_secret* keys)
+{
+	char buf[256];
+	//CLIENT_HANDSHAKE_TRAFFIC_SECRET, random, secret
+	fscanf(fp, "%s", buf);
+	fscanf(fp, "%s", buf);
+	fscanf(fp, "%s", buf);
+	str2hex(buf, (int)strlen(buf), dst);
+
+	derive_key(dst, keys->key);
+	derive_iv(dst, keys->iv);
+}
+
+//wireshark export TLS session secrets
+void read_secrets(char* path)
+{
+	struct parse_info *parse = &gParse_info;
+	FILE* fp = fopen(path, "r");
+	if (!fp)
+		return;
+
+	//fill secrets
+	fill_secret(fp, parse->chts, &parse->chts_keys);
+	fill_secret(fp, parse->shts, &parse->shts_keys);
+	fill_secret(fp, parse->sats, &parse->sats_keys);
+	fill_secret(fp, parse->cats, &parse->cats_keys);
+	
+	parse->app_secrets_done = 1;
+	parse->handshake_secrets_done = 1;
+	parse->mid_secrets_done = 1;
+	fclose(fp);
+}

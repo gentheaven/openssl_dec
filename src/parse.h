@@ -20,11 +20,17 @@ extern int test_hkdf_secrets(void);
 extern int demonstrate_digest(void);
 extern int test_aesgcm(void);
 
+extern int test_rsa(void);
+extern int print_cert(void);
+extern int test_rsa_ext(void);
+extern int test_cert(void);
+
 extern void test_secrets(void);
 
 extern void parse_init(void);
 extern void parse_exit(void);
 
+extern void read_secrets(char* path);
 extern void parse_packet(int index, char* buf, u_int len);
 
 #endif
