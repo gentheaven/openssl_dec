@@ -52,6 +52,17 @@ cmake：4.0.4，编译工具
 
 
 
+客户端ECDHE私钥：
+
+```c
+//ecdhe local private key(32B) 60c436e016e222581407cd72eb98fd81877414960a23041f5b8d2868dbbbe765
+const char local_prikey_str[] = "60c436e016e222581407cd72eb98fd81877414960a23041f5b8d2868dbbbe765";
+unsigned char local_prikey[32];
+str2hex(local_prikey_str, sizeof(local_prikey_str), local_prikey);
+```
+
+
+
 ------
 
 # 目录说明
@@ -374,8 +385,6 @@ OpenSSL 源代码： 用 gvim, ctags, cscope, grep 工具分析学习
 
 [http 访问流程 - 知乎](https://zhuanlan.zhihu.com/p/28812758850)
 
-
-
 [openssl-1-编译和使用 - 知乎](https://zhuanlan.zhihu.com/p/1957352813823791848)
 
 [openssl-2-搭建https服务器 - 知乎](https://zhuanlan.zhihu.com/p/1958572249872332446)
@@ -404,7 +413,9 @@ OpenSSL 源代码： 用 gvim, ctags, cscope, grep 工具分析学习
 
 [openssl-12-https证书1-解析证书 - 知乎](https://zhuanlan.zhihu.com/p/1968215676352169633)
 
+[openssl-13-https证书2-证书签名 - 知乎](https://zhuanlan.zhihu.com/p/1968534610733433649)
 
+[openssl-14-https证书3-握手签名 - 知乎](https://zhuanlan.zhihu.com/p/1968888032124991128)
 
 
 
@@ -447,4 +458,6 @@ OpenSSL 源代码： 用 gvim, ctags, cscope, grep 工具分析学习
 可以验证签名，但是无法生成和握手包中相同的签名值。
 
 
+
+11/4：写完相关文档。项目完结。
 

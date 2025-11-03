@@ -46,13 +46,15 @@ parse_tls  --> CCS
 parse_tls --> app
 
 handshake  --> type_app
-type_app --got finished msg --> finished
+type_app --finished msg --> finished
+type_app --certificate msg --> vc[Verify cert]
+type_app --certificate Verify msg --> vcw[Verify sign]
 
 CCS --> type_hs
 app --> decode[Decipher]
 decode --type:handshake--> type_app
-decode --type:app --> Application
-Application --> http
+decode --type:app --> Application[App<br>dispatch]
+Application --> http[http parser]
 
 ```
 

@@ -139,7 +139,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>llhttp.lib;libcrypto.lib;libssl.lib;;advapi32.lib;crypt32.lib;ws2_32.lib;pcap.lib;user32.lib;kernel32.lib;winspool.lib;comdlg32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>llhttp.lib;libcrypto.lib;advapi32.lib;crypt32.lib;ws2_32.lib;pcap.lib;user32.lib;kernel32.lib;winspool.lib;comdlg32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\libs</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -158,7 +158,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>llhttp.lib;libcrypto.lib;libssl.lib;;advapi32.lib;crypt32.lib;ws2_32.lib;pcap.lib;user32.lib;kernel32.lib;winspool.lib;comdlg32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>llhttp.lib;libcrypto.lib;advapi32.lib;crypt32.lib;ws2_32.lib;pcap.lib;user32.lib;kernel32.lib;winspool.lib;comdlg32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\libs</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>

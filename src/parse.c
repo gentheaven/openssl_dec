@@ -177,6 +177,12 @@ void record_handshake_len(int type, char* buf, int len)
 	struct parse_info* parse = &gParse_info;
 	struct digest_content* dc = &parse->mdc[parse->mdc_cnt];
 
+	if (parse->mdc_cnt) {
+		struct digest_content* prev = &parse->mdc[parse->mdc_cnt - 1];
+		if (prev->msg_type == SSL3_MT_FINISHED) //has record all
+			return;
+	}
+
 	int offset = parse->handshake_len;
 	if ((offset + len) >= MAX_HANDSHAKE_LEN) {
 		printf("record_handshake_len: handshake packet size is more than 64KB\n");
